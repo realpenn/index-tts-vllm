@@ -141,7 +141,7 @@ class UnifiedVoice(nn.Module):
         self.sampling_params = SamplingParams(
             temperature=1.0,
             top_p=0.8,
-            top_k=30,  # 5, 30
+            top_k=1,  # 5, 30
             repetition_penalty=10.0,  # 8.0
             max_tokens=768,  # 605
         )
