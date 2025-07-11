@@ -33,12 +33,47 @@ async def lifespan(app: FastAPI):
         speaker_dict = json.load(open(speaker_path, 'r'))
 
         for speaker, audio_paths in speaker_dict.items():
-            tts.registry_speaker(speaker, audio_paths)
+            audio_paths_ = []
+            for audio_path in audio_paths:
+                audio_paths_.append(os.path.join(cur_dir, audio_path))
+            tts.registry_speaker(speaker, audio_paths_)
     yield
     # Clean up the ML models and release the resources
     # ml_models.clear()
 
 app = FastAPI(lifespan=lifespan)
+
+
+@app.get("/health")
+async def health_check():
+    """健康检查接口"""
+    try:
+        global tts
+        if tts is None:
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "status": "unhealthy",
+                    "message": "TTS model not initialized"
+                }
+            )
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "status": "healthy",
+                "message": "Service is running",
+                "timestamp": time.time()
+            }
+        )
+    except Exception as ex:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "unhealthy",
+                "error": str(ex)
+            }
+        )
 
 
 @app.post("/tts_url", responses={
