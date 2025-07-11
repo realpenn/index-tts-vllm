@@ -7,7 +7,14 @@ import torch.nn as nn
 from indextts.BigVGAN.alias_free_activation.cuda import load
 from indextts.BigVGAN.alias_free_activation.torch.resample import DownSample1d, UpSample1d
 
-anti_alias_activation_cuda = load.load()
+# 使用模块级别的缓存，避免重复加载
+_anti_alias_activation_cuda = None
+
+def get_anti_alias_activation_cuda():
+    global _anti_alias_activation_cuda
+    if _anti_alias_activation_cuda is None:
+        _anti_alias_activation_cuda = load.load()
+    return _anti_alias_activation_cuda
 
 
 class FusedAntiAliasActivation(torch.autograd.Function):
@@ -19,16 +26,20 @@ class FusedAntiAliasActivation(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx, inputs, up_ftr, down_ftr, alpha, beta):
-        activation_results = anti_alias_activation_cuda.forward(
-            inputs, up_ftr, down_ftr, alpha, beta
-        )
+        anti_alias_activation_cuda = get_anti_alias_activation_cuda()
+        if anti_alias_activation_cuda is not None:
+            activation_results = anti_alias_activation_cuda.forward(
+                inputs, up_ftr, down_ftr, alpha, beta
+            )
+        else:
+            raise RuntimeError("Failed to load anti_alias_activation_cuda module")
 
         return activation_results
 
     @staticmethod
-    def backward(ctx, output_grads):
+    def backward(ctx, *grad_outputs):
         raise NotImplementedError
-        return output_grads, None, None
+        return grad_outputs[0], None, None, None, None
 
 
 class Activation1d(nn.Module):
