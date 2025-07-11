@@ -270,7 +270,7 @@ class IndexTTS:
             wav_data = trim_and_pad_silence(wav_data)
             return (sampling_rate, wav_data)
         
-    async def infer_with_ref_audio_embed(self, speaker: str, text):
+    async def infer_with_ref_audio_embed(self, speaker: str, text, output_path=None, verbose=False):
         start_time = time.perf_counter()
         text = text.replace("嗯", "EN4")
         text = text.replace("嘿", "HEI1")
@@ -325,20 +325,34 @@ class IndexTTS:
         end_time = time.perf_counter()
 
         wav = torch.cat(wavs, dim=1)
-        # wav_length = wav.shape[-1] / sampling_rate
-        # # print(f">> Total inference time: {end_time - start_time:.2f} seconds")
-        # print(f">> gpt_gen_time: {gpt_gen_time:.2f} seconds")
-        # print(f">> bigvgan_time: {bigvgan_time:.2f} seconds")
-        # print(f">> Total inference time: {end_time - start_time:.2f} seconds")
-        # print(f">> Generated audio length: {wav_length:.2f} seconds")
-        # print(f">> RTF: {(end_time - start_time) / wav_length:.4f}")
+        wav_length = wav.shape[-1] / sampling_rate
+        if verbose:
+            print(f">> gpt_gen_time: {gpt_gen_time:.2f} seconds")
+            print(f">> bigvgan_time: {bigvgan_time:.2f} seconds")
+            print(f">> Total inference time: {end_time - start_time:.2f} seconds")
+            print(f">> Generated audio length: {wav_length:.2f} seconds")
+            print(f">> RTF: {(end_time - start_time) / wav_length:.4f}")
 
         # save audio
         wav = wav.cpu()  # to cpu
-        wav_data = wav.type(torch.int16)
-        wav_data = wav_data.numpy().T
-        wav_data = trim_and_pad_silence(wav_data)
-        return (sampling_rate, wav_data)
+        if output_path:
+            # 直接保存音频到指定路径中
+            if os.path.isfile(output_path):
+                os.remove(output_path)
+                if verbose:
+                    print(">> remove old wav file:", output_path)
+            if os.path.dirname(output_path) != "":
+                os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            torchaudio.save(output_path, wav.type(torch.int16), sampling_rate)
+            if verbose:
+                print(">> wav file saved to:", output_path)
+            return output_path
+        else:
+            # 返回以符合Gradio的格式要求
+            wav_data = wav.type(torch.int16)
+            wav_data = wav_data.numpy().T
+            wav_data = trim_and_pad_silence(wav_data)
+            return (sampling_rate, wav_data)
     
     @torch.no_grad()
     def registry_speaker(self, speaker: str, audio_paths: List[str]):
